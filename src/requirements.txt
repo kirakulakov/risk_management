@@ -1,0 +1,5 @@
+SQLAlchemy==1.4.35
+fastapi==0.104.0
+uvicorn==0.23.2
+pydantic_settings
+passlib
