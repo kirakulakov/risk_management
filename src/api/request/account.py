@@ -22,6 +22,9 @@ class RequestSignUp(BaseModel):
 
     @validator("email")
     def validate_email(cls, value):
+        if "@" not in value:
+            raise ValueError("Email must contain '@'")
+
         if len(value.split("@")[0]) < 2:
             raise ValueError(
                 "Email must have at least 2 characters before '@'"

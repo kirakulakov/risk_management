@@ -1,6 +1,7 @@
 import sqlite3
 from sqlite3 import Connection, connect
 
+from src.api.request.risks import RequestRisk
 from src.internal.log.log import logger
 
 db = ...
@@ -30,7 +31,7 @@ class Database:
 
     def create_tables_and_fill_data(self) -> None:
         """
-        Create the tables in the database if they don't exist already.
+        Create the tables in the database if they don't exist already and fill them with data.
         """
         logger.info("Initializing database tables")
 
@@ -63,6 +64,28 @@ class Database:
             )
         """
         )
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS risks (
+                id string NOT NULL,
+                name TEXT NOT NULL,
+                account_id INTEGER NOT NULL,
+                description TEXT,
+                comment TEXT,
+                risk_factor_id INTEGER NOT NULL,
+                risk_type_id INTEGER NOT NULL,
+                risk_management_method_id INTEGER NOT NULL,
+                probability SMALLINT NOT NULL,
+                impact SMALLINT NOT NULL,
+                FOREIGN KEY (account_id) REFERENCES accounts(id),
+                FOREIGN KEY (risk_factor_id) REFERENCES risk_factors(id),
+                FOREIGN KEY (risk_type_id) REFERENCES risk_types(id),
+                FOREIGN KEY (risk_management_method_id) REFERENCES risk_management_methods(id)
+                PRIMARY KEY (id, account_id)
+            )
+        """
+        )
+
         self.cursor.execute(
             """
         CREATE TABLE IF NOT EXISTS risk_factors (
@@ -167,6 +190,62 @@ class Database:
 
         self.connection.commit()
 
+    def delete_risk(self, risk_id: str, auth_account_id: int) -> None:
+        self.cursor.execute(
+            "DELETE FROM risks WHERE id = ? AND account_id = ?",
+            (risk_id, auth_account_id),
+        )
+        self.connection.commit()
+
+    def get_project_id_by_account_id(self, auth_account_id: int) -> str:
+        return self.cursor.execute(
+            "SELECT projectId FROM accounts WHERE id = ?", (auth_account_id,)
+        ).fetchone()[0]
+
+    def get_last_risk_id(self, auth_account_id: int) -> int:
+        id_ = self.cursor.execute(
+            "SELECT MAX(id) FROM risks WHERE account_id = ?",
+            (auth_account_id,),
+        ).fetchone()[0]
+        if id_ is None:
+            return 0
+        return id_
+
+    def get_risks(self, auth_account_id: int) -> list[tuple]:
+        return self.cursor.execute(
+            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ?",
+            (auth_account_id,),
+        ).fetchall()
+
+    def get_risk_types(self) -> list[tuple]:
+        return self.cursor.execute("SELECT * FROM risk_types").fetchall()
+
+    def get_risk_type_by_id(self, risk_type_id: int) -> tuple:
+        return self.cursor.execute(
+            "SELECT * FROM risk_types WHERE id = ?", (risk_type_id,)
+        ).fetchone()
+
+    def get_risk_factors(self) -> list[tuple]:
+        return self.cursor.execute("SELECT * FROM risk_factors").fetchall()
+
+    def get_risk_factor_by_id(self, risk_factor_id: int) -> tuple:
+        return self.cursor.execute(
+            "SELECT * FROM risk_factors WHERE id = ?", (risk_factor_id,)
+        ).fetchone()
+
+    def get_risk_management_methods(self) -> list[tuple]:
+        return self.cursor.execute(
+            "SELECT * FROM risk_management_methods"
+        ).fetchall()
+
+    def get_risk_management_method_by_id(
+        self, risk_management_method_id: int
+    ) -> tuple:
+        return self.cursor.execute(
+            "SELECT * FROM risk_management_methods WHERE id = ?",
+            (risk_management_method_id,),
+        ).fetchone()
+
     def fetch_account_by_email(self, email: str) -> tuple | None:
         logger.info(f"Fetching account by email: {email}")
         self.cursor.execute(
@@ -190,6 +269,38 @@ class Database:
             (account_id,),
         )
         return self.cursor.fetchone()
+
+    def risk_id_exists(self, risk_id: str, auth_account_id: int) -> bool:
+        self.cursor.execute(
+            "SELECT id FROM risks WHERE id = ? AND account_id = ?",
+            (risk_id, auth_account_id),
+        )
+        return self.cursor.fetchone() is not None
+
+    def create_risk(
+        self, request_model: RequestRisk, auth_account_id: int
+    ) -> tuple:
+        logger.info(f"Creating risk: {request_model}")
+        self.cursor.execute(
+            """
+            INSERT INTO risks (
+                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                request_model.id,
+                auth_account_id,
+                request_model.name,
+                request_model.comment,
+                request_model.factor_id,
+                request_model.type_id,
+                request_model.method_id,
+                request_model.probability,
+                request_model.impact,
+            ),
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
 
     def create_account(
         self,

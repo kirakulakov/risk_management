@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from starlette import status
 
-from src.db.db import init_db
+from src.db.db import init_db, Database
 from src.internal.config.config import init_settings
 from src.services.account import AccountService
 
@@ -59,3 +59,7 @@ def get_account_service() -> AccountService:
         security=settings.security,
         oauth2_scheme=oauth2_scheme,
     )
+
+
+def get_db() -> Database:
+    return db

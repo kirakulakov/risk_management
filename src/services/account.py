@@ -148,14 +148,14 @@ class AccountService:
                 email=request_model.email
             )
 
-        if email_already_registered:
-            email_by_id = self.database.fetch_email_by_id(auth_account_id)
-            if email_by_id[0] != request_model.email:
-                logger.info("Login is already registered in the system!")
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Login is already registered in the system!",
-                )
+            if email_already_registered:
+                email_by_id = self.database.fetch_email_by_id(auth_account_id)
+                if email_by_id[0] != request_model.email:
+                    logger.info("Login is already registered in the system!")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Login is already registered in the system!",
+                    )
 
         self.database.update_account(
             account_id=auth_account_id,
