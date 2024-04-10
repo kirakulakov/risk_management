@@ -1,4 +1,3 @@
-import time
 from sqlite3 import Cursor
 
 from starlette.testclient import TestClient

@@ -302,13 +302,13 @@ class Database:
         return self.cursor.lastrowid
 
     def create_account(
-        self,
-        email: str,
-        password: str,
-        name: str,
-        project_name: str,
-        project_id: int,
-        description: str | None = None,
+            self,
+            email: str,
+            password: str,
+            name: str,
+            project_name: str,
+            project_id: int,
+            description: str | None = None,
     ) -> int:
         """
         Create a new account in the database.
@@ -347,13 +347,13 @@ class Database:
             raise RuntimeError(f"Unexpected error creating account: {e}") from e
 
     def update_account(
-        self,
-        account_id: int,
-        email: str | None = None,
-        name: str | None = None,
-        projectName: str | None = None,
-        projectId: int | None = None,
-        description: str | None = None,
+            self,
+            account_id: int,
+            email: str | None = None,
+            name: str | None = None,
+            projectName: str | None = None,
+            projectId: int | None = None,
+            description: str | None = None,
     ) -> None:
         updates = {
             "email": email,

@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query

@@ -17,6 +17,7 @@ app = FastAPI(
     openapi_url=settings.server.openapi_url
 )
 
+
 @app.middleware("http")
 async def http_middleware(request: Request, call_next):
     logger.info(

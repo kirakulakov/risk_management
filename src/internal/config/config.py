@@ -25,8 +25,8 @@ class Security(BaseModel):
     algorithm: str
     access_token_expire_minutes: int
 
-class Settings(BaseSettings):
 
+class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=os.getenv("ENV_FILE", ".env"),
         env_prefix="risk_management_",

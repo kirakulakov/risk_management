@@ -76,6 +76,7 @@ class AccountService:
 
         access_token_expires = datetime.timedelta(minutes=self.access_token_expire_minutes)
         access_token = self.create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+        return Token(access_token=access_token, token_type="bearer")
 
     async def sign_up(self, account_in_db: RequestSignUp) -> ResponseSignUp:
 

@@ -55,7 +55,7 @@ class ResponseRiskFactory:
 
     @staticmethod
     def get_from_tuple_with_dict(
-        risk: RiskDTO, factors: list[CommonObjDTO], types: list[CommonObjDTO], methods: list[CommonObjDTO]
+            risk: RiskDTO, factors: list[CommonObjDTO], types: list[CommonObjDTO], methods: list[CommonObjDTO]
     ) -> ResponseRisk:
         factor_ = None
         type_ = None
@@ -90,7 +90,8 @@ class ResponseRiskFactory:
 
     @classmethod
     def get_many_from_tuples(
-        cls, risks: list[RiskDTO], factors: list[CommonObjDTO], types: list[CommonObjDTO], methods: list[CommonObjDTO]
+            cls, risks: list[RiskDTO], factors: list[CommonObjDTO], types: list[CommonObjDTO],
+            methods: list[CommonObjDTO]
     ) -> list[ResponseRisk]:
         return [
             cls.get_from_tuple_with_dict(risk=risk, factors=factors, types=types, methods=methods) for risk in risks

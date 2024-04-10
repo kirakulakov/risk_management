@@ -66,7 +66,6 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
         "probability": 5,
         "impact": 5
 
-
     }
     response = client.post(f"/api/risks", headers=auth, json=payload)
     assert response.status_code == 200
@@ -87,7 +86,6 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
         "probability": 5,
         "impact": 5
 
-
     }
     response = client.post(f"/api/risks", headers=auth, json=payload)
     assert response.status_code == 200
@@ -104,6 +102,3 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
         "SELECT COUNT(*) FROM risks"
     )
     assert count_risk_db.fetchone()[0] == 1
-
-
-
