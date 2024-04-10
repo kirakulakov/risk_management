@@ -1,5 +1,8 @@
 from pydantic import BaseModel, Field
 
+from src.internal.dto.common_object import CommonObjDTO
+from src.internal.dto.risks import RiskDTO
+
 
 class CommonObj(BaseModel):
     id: int = Field(...)
@@ -13,6 +16,10 @@ class CommonObjFactory:
             id=tuple_[0],
             name=tuple_[1],
         )
+
+    @staticmethod
+    def get_from_dto(dto: CommonObjDTO) -> CommonObj:
+        return CommonObj(id=dto.id, name=dto.name)
 
     @classmethod
     def get_many_from_tuples(cls, tuples: list[tuple]) -> list[CommonObj]:
@@ -48,27 +55,43 @@ class ResponseRiskFactory:
 
     @staticmethod
     def get_from_tuple_with_dict(
-        tuple_: tuple, factors: dict, types: dict, methods: dict
+        risk: RiskDTO, factors: list[CommonObjDTO], types: list[CommonObjDTO], methods: list[CommonObjDTO]
     ) -> ResponseRisk:
+        factor_ = None
+        type_ = None
+        method_ = None
+
+        for factor in factors:
+            if factor.id == risk.factor_id:
+                factor_ = factor
+                break
+
+        for type in types:
+            if type.id == risk.type_id:
+                type_ = type
+                break
+
+        for method in methods:
+            if method.id == risk.method_id:
+                method_ = method
+                break
+
         return ResponseRisk(
-            id=tuple_[0],
-            name=tuple_[1],
-            description=tuple_[2],
-            comment=tuple_[3],
-            factor=CommonObjFactory.get_from_tuple(factors.get(tuple_[4])),
-            type=CommonObjFactory.get_from_tuple(types.get(tuple_[5])),
-            method=CommonObjFactory.get_from_tuple(methods.get(tuple_[6])),
-            probability=tuple_[7],
-            impact=tuple_[8],
+            id=risk.id,
+            name=risk.name,
+            description=risk.description,
+            comment=risk.comment,
+            factor=CommonObjFactory.get_from_dto(factor_),
+            type=CommonObjFactory.get_from_dto(type_),
+            method=CommonObjFactory.get_from_dto(method_),
+            probability=risk.probability,
+            impact=risk.impact,
         )
 
     @classmethod
     def get_many_from_tuples(
-        cls, tuples: list[tuple], factors: dict, types: dict, methods: dict
+        cls, risks: list[RiskDTO], factors: list[CommonObjDTO], types: list[CommonObjDTO], methods: list[CommonObjDTO]
     ) -> list[ResponseRisk]:
         return [
-            cls.get_from_tuple_with_dict(
-                tuple_=tuple_, factors=factors, types=types, methods=methods
-            )
-            for tuple_ in tuples
+            cls.get_from_tuple_with_dict(risk=risk, factors=factors, types=types, methods=methods) for risk in risks
         ]

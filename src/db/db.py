@@ -1,10 +1,10 @@
+import logging
 import sqlite3
 from sqlite3 import Connection, connect
 
 from src.api.request.risks import RequestRisk
-from src.internal.log.log import logger
 
-db = ...
+db = None
 
 
 class Database:
@@ -15,25 +15,42 @@ class Database:
             cls._instance = super(Database, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, path: str) -> None:
-        logger.info("Initializing database")
+    def __init__(self, path: str, logger: logging.Logger) -> None:
+        self.path = path
+        self.logger = logger
 
         if getattr(self, "initialized", False):
             return
 
         self.initialized = True
 
-        self.connection: Connection = connect(path)
+        self.connection: Connection = connect(path, check_same_thread=False)
 
         self.cursor = self.connection.cursor()
 
         self.create_tables_and_fill_data()
+        self.logger.info("Database initialized")
+
+    def get_path(self):
+        return self.path
+
+    def drop_all_tables(self) -> None:
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS accounts; 
+            """
+        )
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS risks; 
+            """
+        )
+        self.connection.commit()
 
     def create_tables_and_fill_data(self) -> None:
         """
         Create the tables in the database if they don't exist already and fill them with data.
         """
-        logger.info("Initializing database tables")
 
         self.cursor.execute(
             """
@@ -68,6 +85,8 @@ class Database:
             """
             CREATE TABLE IF NOT EXISTS risks (
                 id string NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 name TEXT NOT NULL,
                 account_id INTEGER NOT NULL,
                 description TEXT,
@@ -123,9 +142,7 @@ class Database:
                 "Внутренний",
             ),
         ]
-        self.cursor.executemany(
-            "INSERT INTO risk_factors (id, name) VALUES (?, ?)", risk_factors
-        )
+        self.cursor.executemany("INSERT INTO risk_factors (id, name) VALUES (?, ?)", risk_factors)
 
         risk_types = [
             (
@@ -157,9 +174,7 @@ class Database:
                 "Социальный",
             ),
         ]
-        self.cursor.executemany(
-            "INSERT INTO risk_types (id, name) VALUES (?, ?)", risk_types
-        )
+        self.cursor.executemany("INSERT INTO risk_types (id, name) VALUES (?, ?)", risk_types)
 
         risk_management_methods = [
             (
@@ -198,9 +213,7 @@ class Database:
         self.connection.commit()
 
     def get_project_id_by_account_id(self, auth_account_id: int) -> str:
-        return self.cursor.execute(
-            "SELECT projectId FROM accounts WHERE id = ?", (auth_account_id,)
-        ).fetchone()[0]
+        return self.cursor.execute("SELECT projectId FROM accounts WHERE id = ?", (auth_account_id,)).fetchone()[0]
 
     def get_last_risk_id(self, auth_account_id: int) -> int:
         id_ = self.cursor.execute(
@@ -211,43 +224,34 @@ class Database:
             return 0
         return id_
 
-    def get_risks(self, auth_account_id: int) -> list[tuple]:
+    def get_risks(self, auth_account_id: int, limit: int, offset: int) -> list[tuple]:
         return self.cursor.execute(
-            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ?",
-            (auth_account_id,),
+            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (auth_account_id, limit, offset),
         ).fetchall()
 
     def get_risk_types(self) -> list[tuple]:
         return self.cursor.execute("SELECT * FROM risk_types").fetchall()
 
     def get_risk_type_by_id(self, risk_type_id: int) -> tuple:
-        return self.cursor.execute(
-            "SELECT * FROM risk_types WHERE id = ?", (risk_type_id,)
-        ).fetchone()
+        return self.cursor.execute("SELECT * FROM risk_types WHERE id = ?", (risk_type_id,)).fetchone()
 
     def get_risk_factors(self) -> list[tuple]:
         return self.cursor.execute("SELECT * FROM risk_factors").fetchall()
 
     def get_risk_factor_by_id(self, risk_factor_id: int) -> tuple:
-        return self.cursor.execute(
-            "SELECT * FROM risk_factors WHERE id = ?", (risk_factor_id,)
-        ).fetchone()
+        return self.cursor.execute("SELECT * FROM risk_factors WHERE id = ?", (risk_factor_id,)).fetchone()
 
     def get_risk_management_methods(self) -> list[tuple]:
-        return self.cursor.execute(
-            "SELECT * FROM risk_management_methods"
-        ).fetchall()
+        return self.cursor.execute("SELECT * FROM risk_management_methods").fetchall()
 
-    def get_risk_management_method_by_id(
-        self, risk_management_method_id: int
-    ) -> tuple:
+    def get_risk_management_method_by_id(self, risk_management_method_id: int) -> tuple:
         return self.cursor.execute(
             "SELECT * FROM risk_management_methods WHERE id = ?",
             (risk_management_method_id,),
         ).fetchone()
 
     def fetch_account_by_email(self, email: str) -> tuple | None:
-        logger.info(f"Fetching account by email: {email}")
         self.cursor.execute(
             "SELECT id, email, name, password, projectName, projectId, description FROM accounts WHERE email = ?",
             (email,),
@@ -255,7 +259,6 @@ class Database:
         return self.cursor.fetchone()
 
     def fetch_email_by_id(self, auth_account_id: int) -> tuple | None:
-        logger.info(f"Fetching email by id: {auth_account_id}")
         self.cursor.execute(
             "SELECT email FROM accounts WHERE id = ?",
             (str(auth_account_id),),
@@ -263,7 +266,6 @@ class Database:
         return self.cursor.fetchone()
 
     def fetch_account_by_id(self, account_id: int) -> tuple | None:
-        logger.info(f"Fetching account by ID: {account_id}")
         self.cursor.execute(
             "SELECT id, email, name, password, projectName, projectId, description FROM accounts WHERE id = ?",
             (account_id,),
@@ -277,10 +279,7 @@ class Database:
         )
         return self.cursor.fetchone() is not None
 
-    def create_risk(
-        self, request_model: RequestRisk, auth_account_id: int
-    ) -> tuple:
-        logger.info(f"Creating risk: {request_model}")
+    def create_risk(self, request_model: RequestRisk, auth_account_id: int) -> tuple:
         self.cursor.execute(
             """
             INSERT INTO risks (
@@ -328,7 +327,6 @@ class Database:
             raise ValueError("Project name cannot be None or empty")
 
         try:
-            logger.info(f"Creating account: {email}")
             self.cursor.execute(
                 """
                 INSERT INTO accounts (email, password, name, projectName, projectId, description)
@@ -340,15 +338,13 @@ class Database:
             return self.cursor.lastrowid
 
         except sqlite3.Error as e:
-            logger.error(f"Error creating account: {e}")
+            self.logger.error(f"Error creating account: {e}")
             self.connection.rollback()
             raise RuntimeError(f"Error creating account: {e}") from e
         except Exception as e:
-            logger.error(f"Unexpected error creating account: {e}")
+            self.logger.error(f"Unexpected error creating account: {e}")
             self.connection.rollback()
-            raise RuntimeError(
-                f"Unexpected error creating account: {e}"
-            ) from e
+            raise RuntimeError(f"Unexpected error creating account: {e}") from e
 
     def update_account(
         self,
@@ -359,7 +355,6 @@ class Database:
         projectId: int | None = None,
         description: str | None = None,
     ) -> None:
-        logger.info(f"Updating account: {account_id}")
         updates = {
             "email": email,
             "name": name,
@@ -372,13 +367,7 @@ class Database:
             return
 
         sql = "UPDATE accounts SET "
-        sql += ", ".join(
-            [
-                f"{key} = ?"
-                for key, value in updates.items()
-                if value is not None
-            ]
-        )
+        sql += ", ".join([f"{key} = ?" for key, value in updates.items() if value is not None])
         sql += " WHERE id = ?"
 
         values = [value for value in updates.values() if value is not None]
@@ -388,7 +377,6 @@ class Database:
         self.connection.commit()
 
     def update_account_password(self, account_id: int, password: str) -> None:
-        logger.info(f"Updating password for account: {account_id}")
         self.cursor.execute(
             """
             UPDATE accounts
@@ -400,7 +388,6 @@ class Database:
         self.connection.commit()
 
     def update_password(self, account_id: int, new_password: str) -> None:
-        logger.info(f"Updating password for account: {account_id}")
         self.cursor.execute(
             """
             UPDATE accounts
@@ -413,22 +400,11 @@ class Database:
 
     def close_connection(self) -> None:
         if self.connection is None:
-            logger.error(
-                "Database connection has already been closed or never existed."
-            )
-            raise RuntimeError(
-                "Database connection has already been closed or never existed."
-            )
+            self.logger.error("Database connection has already been closed or never existed.")
+            raise RuntimeError("Database connection has already been closed or never existed.")
 
         try:
-            logger.info("Closing database connection")
             self.connection.close()
         except Exception as e:
-            logger.error(f"Unexpected error closing database connection: {e}")
-            raise RuntimeError(
-                f"Unexpected error closing database connection: {e}"
-            ) from e
-
-
-def init_db(path: str) -> Database:
-    return Database(path=path)
+            self.logger.error(f"Unexpected error closing database connection: {e}")
+            raise RuntimeError(f"Unexpected error closing database connection: {e}") from e

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from pydantic import Field, BaseModel, validator
+
+from pydantic import Field, BaseModel, field_validator
 
 
 class RequestSignUp(BaseModel):
@@ -20,7 +21,7 @@ class RequestSignUp(BaseModel):
             "description": self.description,
         }
 
-    @validator("email")
+    @field_validator("email")
     def validate_email(cls, value):
         if "@" not in value:
             raise ValueError("Email must contain '@'")
@@ -37,13 +38,13 @@ class RequestSignUp(BaseModel):
             raise ValueError("Email must have at least 2 characters after '.'")
         return value
 
-    @validator("name")
+    @field_validator("name")
     def validate_name_length(cls, name):
         if len(name) < 3 or len(name) > 260:
             raise ValueError("Name must be between 3 and 260 characters long")
         return name
 
-    @validator("projectName")
+    @field_validator("projectName")
     def validate_project_name_length(cls, projectName):
         if len(projectName) < 3 or len(projectName) > 260:
             raise ValueError(
@@ -51,13 +52,13 @@ class RequestSignUp(BaseModel):
             )
         return projectName
 
-    @validator("projectId")
+    @field_validator("projectId")
     def validate_project_id_length(cls, projectId):
         if len(projectId) != 3:
             raise ValueError("Project ID must be exactly 3 characters long")
         return projectId
 
-    @validator("description", pre=True, always=True)
+    @field_validator("description", mode='before')
     def validate_description_length(cls, description):
         if description and len(description) > 2000:
             raise ValueError("Description must be up to 2000 characters long")

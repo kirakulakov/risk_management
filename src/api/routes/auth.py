@@ -26,6 +26,4 @@ async def signin(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     auth_service: AccountService = Depends(get_account_service),
 ):
-    return await auth_service.sign_in(
-        email=form_data.username, password=form_data.password
-    )
+    return await auth_service.sign_in(email=form_data.username, password=form_data.password)

@@ -19,9 +19,7 @@ async def update_account(
     auth_account_id: int = Depends(get_auth_account_id_from_token),
 ):
 
-    return await auth_service.update_account(
-        auth_account_id=auth_account_id, request_model=request_model
-    )
+    return await auth_service.update_account(auth_account_id=auth_account_id, request_model=request_model)
 
 
 @router.patch("/password", response_model=ResponseEmpty)
@@ -31,7 +29,5 @@ async def change_password(
     auth_account_id: int = Depends(get_auth_account_id_from_token),
 ):
 
-    await auth_service.patch_passwrod(
-        auth_account_id=auth_account_id, request_model=request_model
-    )
+    await auth_service.patch_passwrod(auth_account_id=auth_account_id, request_model=request_model)
     return ResponseEmpty()

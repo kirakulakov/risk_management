@@ -1,7 +1,7 @@
+import os
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-settings = ...
 
 
 class Server(BaseModel):
@@ -25,10 +25,10 @@ class Security(BaseModel):
     algorithm: str
     access_token_expire_minutes: int
 
-
 class Settings(BaseSettings):
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=os.getenv("ENV_FILE", ".env"),
         env_prefix="risk_management_",
         env_nested_delimiter="__",
     )
@@ -36,7 +36,3 @@ class Settings(BaseSettings):
     server: Server
     db: DB
     security: Security
-
-
-def init_settings() -> Settings:
-    return Settings()

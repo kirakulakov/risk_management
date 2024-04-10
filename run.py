@@ -1,15 +1,14 @@
 import uvicorn
 
-from src.internal.config.config import init_settings
+from src.internal.config.config import Settings
 
-settings = init_settings()
+settings = Settings()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "src.api.app.app:app",
-        host=settings.server.host,
+        "src.main:app",
         port=settings.server.port,
-        log_level=settings.server.log_level,
         reload=settings.server.reload,
         workers=settings.server.workers,
+        log_level=settings.server.log_level
     )
