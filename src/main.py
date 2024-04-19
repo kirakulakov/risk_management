@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes.routers import router as account_router
 from src.db.db import Database
@@ -15,6 +16,14 @@ app = FastAPI(
     title=settings.server.title,
     docs_url=settings.server.docs_url,
     openapi_url=settings.server.openapi_url
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 

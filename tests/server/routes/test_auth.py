@@ -65,3 +65,11 @@ def test_sign_up(client: TestClient, cursor: Cursor):
         "SELECT COUNT(*) FROM accounts"
     )
     assert count_account_db.fetchone()[0] == 2
+
+    payload = {
+        "email": "222@222.com",
+        "password": "123446"
+    }
+
+    response = client.post("/api/auth/sign-in", json=payload)
+    assert response.status_code == 200

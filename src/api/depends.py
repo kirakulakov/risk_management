@@ -12,7 +12,7 @@ from src.db.db import Database
 from src.internal.config.config import Settings
 from src.services.account import AccountService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/sign-in")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/sign-in/base")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 

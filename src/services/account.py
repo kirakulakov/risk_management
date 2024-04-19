@@ -24,7 +24,7 @@ class User:
     name: str
     password: str
     project_name: str
-    project_id: int
+    project_id: str
     description: str | None = None
 
 
@@ -145,7 +145,6 @@ class AccountService:
     async def get_user_by_id(self, auth_account_id: int) -> User:
         user = self.database.fetch_account_by_id(account_id=auth_account_id)
         if not user:
-            self.logger.warning("User not found")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
         return User(
@@ -174,7 +173,7 @@ class AccountService:
             description=user[6],
         )
 
-    async def patch_passwrod(self, request_model: RequestPatchPassword, auth_account_id: int) -> None:
+    async def patch_password(self, request_model: RequestPatchPassword, auth_account_id: int) -> None:
         user = await self.get_user_by_id(auth_account_id=auth_account_id)
 
         if not self.verify(
