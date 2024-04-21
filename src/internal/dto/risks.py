@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class RiskDTO:
-    id: int
+    id: str
     name: str
     factor_id: int
     type_id: int

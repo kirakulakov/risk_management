@@ -102,3 +102,111 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
         "SELECT COUNT(*) FROM risks"
     )
     assert count_risk_db.fetchone()[0] == 1
+
+    response = client.get(f"/api/risks", headers=auth)
+    assert response.status_code == 200
+    for r in response.json():
+        assert r['description'] == 'string1'
+
+    payload = {
+        "id": new_id,
+        "name": "string1",
+        "factor_id": 1,
+        "type_id": 1,
+        "method_id": 1,
+        "probability": 5,
+        "impact": 5
+
+    }
+    response = client.post(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+
+    response = client.get(f"/api/risks", headers=auth)
+    assert response.status_code == 200
+    description_set = set()
+    comment_set = set()
+
+    for r in response.json():
+        description_set.add(r['description'])
+        comment_set.add(r['comment'])
+
+    assert None in description_set
+    assert 'string1' in description_set
+    assert None in comment_set
+    assert 'string1' in comment_set
+
+    # update
+    risk_id = response.json()[0]['id']
+    payload = {
+        "id": risk_id,
+        "name": "string2",
+        "description": "string2",
+        "comment": "string2",
+        "factor_id": 2,
+        "type_id": 2,
+        "method_id": 2,
+        "probability": 2,
+        "impact": 2
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+    assert response.json()['name'] == payload['name']
+    assert response.json()['description'] == payload['description']
+    assert response.json()['comment'] == payload['comment']
+    assert response.json()['factor']['id'] == payload['factor_id']
+    assert response.json()['type']['id'] == payload['type_id']
+    assert response.json()['method']['id'] == payload['method_id']
+    assert response.json()['probability'] == payload['probability']
+    assert response.json()['impact'] == payload['impact']
+
+    payload = {
+        "id": risk_id,
+        "name": "asasa"
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+    assert response.json()['name'] == payload['name']
+
+    payload = {
+        "id": risk_id,
+        "description": "qweqweqw"
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+    assert response.json()['description'] == payload['description']
+
+    payload = {
+        "id": risk_id,
+        "comment": "comme123nt"
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+    assert response.json()['comment'] == payload['comment']
+
+    payload = {
+        "id": risk_id,
+        "factor_id": 1,
+        "type_id": 1,
+        "method_id": 1
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+    assert response.json()['factor']['id'] == payload['factor_id']
+    assert response.json()['type']['id'] == payload['type_id']
+    assert response.json()['method']['id'] == payload['method_id']
+    assert response.json()['name'] == 'asasa'
+    assert response.json()['description'] == 'qweqweqw'
+    assert response.json()['comment'] == 'comme123nt'
+
+    payload = {
+        "id": 'HAAABB',
+        "comment": "comme123nt"
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 404

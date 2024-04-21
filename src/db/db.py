@@ -2,7 +2,7 @@ import logging
 import sqlite3
 from sqlite3 import Connection, connect
 
-from src.api.request.risks import RequestRisk
+from src.api.request.risks import RequestRisk, RequestRiskUpdate
 
 db = None
 
@@ -230,6 +230,39 @@ class Database:
             (auth_account_id, limit, offset),
         ).fetchall()
 
+    def get_risk_by_id(self, auth_account_id: int, risk_id: str) -> tuple:
+        return self.cursor.execute(
+            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ? AND id = ?",
+            (auth_account_id, risk_id),
+        ).fetchone()
+
+    def update_risk_by_request_model(self, auth_account_id: int, request_model: RequestRiskUpdate) -> None:
+        attributes = {
+            'name': request_model.name,
+            'description': request_model.description,
+            'comment': request_model.comment,
+            'risk_factor_id': request_model.factor_id,
+            'risk_type_id': request_model.type_id,
+            'risk_management_method_id': request_model.method_id,
+            'probability': request_model.probability,
+            'impact': request_model.impact
+        }
+
+        query = "UPDATE risks SET "
+        _params = []
+
+        for attr, value in attributes.items():
+            if value is not None:
+                query += f"{attr} = ?, "
+                _params.append(value)
+
+        query = query.rstrip(', ')  # remove trailing comma and space
+        query += " WHERE account_id = ? AND id = ?"
+        _params += [auth_account_id, request_model.id]
+
+        self.cursor.execute(query, tuple(_params))
+        self.connection.commit()
+
     def get_risk_types(self) -> list[tuple]:
         return self.cursor.execute("SELECT * FROM risk_types").fetchall()
 
@@ -283,8 +316,8 @@ class Database:
         self.cursor.execute(
             """
             INSERT INTO risks (
-                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_model.id,
@@ -296,6 +329,7 @@ class Database:
                 request_model.method_id,
                 request_model.probability,
                 request_model.impact,
+                request_model.description
             ),
         )
         self.connection.commit()

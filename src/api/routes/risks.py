@@ -6,7 +6,7 @@ from src.api.depends import (
     get_auth_account_id_from_token,
     get_db,
 )
-from src.api.request.risks import RequestRisk
+from src.api.request.risks import RequestRisk, RequestRiskUpdate
 from src.api.response.empty import ResponseEmpty
 from src.api.response.risks import (
     CommonObj,
@@ -98,6 +98,34 @@ async def get_risks(
     risks = RiskDTOFactory.get_many_from_tuples(rows)
 
     return ResponseRiskFactory.get_many_from_tuples(risks=risks, factors=factors, types=types, methods=methods)
+
+
+@router.patch("", response_model=ResponseRisk)
+async def patch_risk(
+        request_model: RequestRiskUpdate,
+        db: Database = Depends(get_db),
+        auth_account_id: int = Depends(get_auth_account_id_from_token),
+):
+    risk_exist = db.risk_id_exists(risk_id=request_model.id, auth_account_id=auth_account_id)
+    if not risk_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Risk not found",
+        )
+    db.update_risk_by_request_model(request_model=request_model, auth_account_id=auth_account_id)
+    updated_risk = db.get_risk_by_id(risk_id=request_model.id, auth_account_id=auth_account_id)
+    risk = RiskDTOFactory.from_tuple(updated_risk)
+
+    factors = db.get_risk_factors()
+    factors = CommonObjDTOFactory.get_many_from_tuples(factors)
+
+    types = db.get_risk_types()
+    types = CommonObjDTOFactory.get_many_from_tuples(types)
+
+    methods = db.get_risk_management_methods()
+    methods = CommonObjDTOFactory.get_many_from_tuples(methods)
+
+    return ResponseRiskFactory.get_from_tuple_with_dict(risk=risk, factors=factors, types=types, methods=methods)
 
 
 @router.delete("/{risk_id}", response_model=ResponseEmpty)
