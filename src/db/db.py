@@ -24,12 +24,25 @@ class Database:
 
         self.initialized = True
 
-        self.connection: Connection = connect(path, check_same_thread=False)
-
-        self.cursor = self.connection.cursor()
+        self._cursor = self.connection.cursor()
 
         self.create_tables_and_fill_data()
         self.logger.info("Database initialized")
+
+    @property
+    def __cursor(self) -> sqlite3.Cursor:
+        cur = self._cursor
+        yield cur
+
+    @property
+    def connection(self) -> sqlite3.Connection:
+        with connect(self.path, check_same_thread=False) as conn:
+            return conn
+
+    @property
+    def cursor(self) -> sqlite3.Cursor:
+        cur = next(self.__cursor)
+        return cur
 
     def get_path(self):
         return self.path
@@ -50,7 +63,7 @@ class Database:
             DROP TABLE IF EXISTS history_log_risks; 
             """
         )
-        self.connection.commit()
+        # self.connection.commit()
 
     def create_tables_and_fill_data(self) -> None:
         """
@@ -455,7 +468,7 @@ class Database:
             risk_management_methods,
         )
 
-        self.connection.commit()
+        # self.connection.commit()
 
     def delete_risk(self, risk_id: str, auth_account_id: int) -> None:
         self.cursor.execute(
@@ -465,7 +478,7 @@ class Database:
         self.cursor.execute(
             f"DELETE FROM history_log_risks WHERE risk_id = '{risk_id}'",
         )
-        self.connection.commit()
+        # self.connection.commit()
 
     def get_project_id_by_account_id(self, auth_account_id: int) -> str:
         return self.cursor.execute("SELECT projectId FROM accounts WHERE id = ?", (auth_account_id,)).fetchone()[0]
@@ -529,7 +542,7 @@ class Database:
         _params += [auth_account_id, request_model.id]
 
         self.cursor.execute(query, tuple(_params))
-        self.connection.commit()
+        # self.connection.commit()
 
     def get_risk_types(self) -> list[tuple]:
         return self.cursor.execute("SELECT * FROM risk_types").fetchall()
@@ -620,7 +633,7 @@ class Database:
                 request_model.description
             ),
         )
-        self.connection.commit()
+        # self.connection.commit()
         return self.cursor.lastrowid
 
     def create_account(
@@ -656,7 +669,7 @@ class Database:
             """,
                 (email, password, name, project_name, project_id, description),
             )
-            self.connection.commit()
+            # # self.connection.commit()
             return self.cursor.lastrowid
 
         except sqlite3.Error as e:
@@ -696,7 +709,7 @@ class Database:
         values.append(account_id)
 
         self.cursor.execute(sql, values)
-        self.connection.commit()
+        # self.connection.commit()
 
     def update_account_password(self, account_id: int, password: str) -> None:
         self.cursor.execute(
@@ -707,7 +720,7 @@ class Database:
         """,
             (password, account_id),
         )
-        self.connection.commit()
+        # self.connection.commit()
 
     def update_password(self, account_id: int, new_password: str) -> None:
         self.cursor.execute(
@@ -718,7 +731,7 @@ class Database:
         """,
             (new_password, account_id),
         )
-        self.connection.commit()
+        # self.connection.commit()
 
     def close_connection(self) -> None:
         if self.connection is None:
