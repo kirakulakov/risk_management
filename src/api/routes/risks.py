@@ -86,13 +86,25 @@ async def create_new_risk(
             status_code=status.HTTP_409_CONFLICT,
             detail="Risk id is already exist",
         )
-    db.create_risk(request_model=request_model, auth_account_id=auth_account_id)
-    factor = db.get_risk_factor_by_id(request_model.factor_id)
-    type = db.get_risk_type_by_id(request_model.type_id)
-    method = db.get_risk_management_method_by_id(request_model.method_id)
-    risk_status = db.get_risk_status_by_id(1)
-    probability = db.get_risk_probability_by_id(request_model.probability_id)
-    impact = db.get_risk_impact_by_id(request_model.impact_id)
+    # db.create_risk(request_model=request_model, auth_account_id=auth_account_id)
+    # factor = db.get_risk_factor_by_id(request_model.factor_id)
+    # type = db.get_risk_type_by_id(request_model.type_id)
+    # method = db.get_risk_management_method_by_id(request_model.method_id)
+    # risk_status = db.get_risk_status_by_id(1)
+    # probability = db.get_risk_probability_by_id(request_model.probability_id)
+    # impact = db.get_risk_impact_by_id(request_model.impact_id)
+
+    tasks = []
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_factor_by_id, request_model.factor_id)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_type_by_id, request_model.type_id)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_management_method_by_id, request_model.method_id)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_status_by_id, 1)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_probability_by_id, request_model.probability_id)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.get_risk_impact_by_id, request_model.impact_id)))
+    tasks.append(asyncio.create_task(fetch_data_no_factory(db.create_risk, request_model, auth_account_id)))
+
+    results: tuple = await asyncio.gather(*tasks, return_exceptions=True)
+    factor, type, method, risk_status, probability, impact, _ = results
 
     new_risk = (
         request_model.id,
@@ -128,13 +140,20 @@ async def get_risks(
     factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
     factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
 
-    tasks = [fetch_data(method, factory) for method, factory in zip(db_methods, factory_methods)]
+    tasks = [asyncio.create_task(fetch_data(method, factory)) for method, factory in zip(db_methods, factory_methods)]
+
     tasks.append(
-        fetch_data(
-            db.get_risks,
-            RiskDTOFactory.get_many_from_tuples,
-            auth_account_id=auth_account_id, limit=pagination_params.limit,
-            offset=pagination_params.offset))
+        asyncio.create_task(
+            fetch_data(
+                db.get_risks,
+                RiskDTOFactory.get_many_from_tuples,
+                auth_account_id=auth_account_id,
+                limit=pagination_params.limit,
+                offset=pagination_params.offset
+            )
+        )
+    )
+
     results: tuple = await asyncio.gather(*tasks)
 
     factors, types, methods, statuses, probabilities, impacts, risks = results
@@ -173,6 +192,13 @@ async def fetch_data(db_method: Callable[..., Any], factory_method: Callable[[An
         data = future.result()
         result = factory_method(data)
     return result
+
+
+async def fetch_data_no_factory(db_method: Callable[..., Any], *args, **kwargs) -> Any:
+    with ThreadPoolExecutor() as executor:
+        future = executor.submit(db_method, *args, **kwargs)
+        data = future.result()
+    return data
 
 
 @router.patch("", response_model=ResponseRisk)

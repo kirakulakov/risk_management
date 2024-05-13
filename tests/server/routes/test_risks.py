@@ -333,3 +333,18 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
 
     response = client.patch(f"/api/risks", headers=auth, json=payload)
     assert response.status_code == 404
+
+    count_history_risks_db = cursor.execute(f"SELECT COUNT(*) FROM history_log_risks WHERE risk_id = '{risk_id}'").fetchone()[0]
+    assert count_history_risks_db != 0
+
+    count_risk_db = cursor.execute(f"SELECT COUNT(*) FROM risks WHERE id = '{risk_id}'").fetchone()[0]
+    assert count_risk_db != 0
+
+    response = client.delete(f"/api/risks/{risk_id}", headers=auth)
+    assert response.status_code == 200
+
+    count_history_risks_db = cursor.execute(f"SELECT COUNT(*) FROM history_log_risks WHERE risk_id = '{risk_id}'").fetchone()[0]
+    assert count_history_risks_db == 0
+
+    count_risk_db = cursor.execute(f"SELECT COUNT(*) FROM risks WHERE id = '{risk_id}'").fetchone()[0]
+    assert count_risk_db == 0
