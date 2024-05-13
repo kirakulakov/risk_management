@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from src.internal.dto.common_object import CommonObjDTO, CommonObjWithValueDTO
@@ -109,7 +111,6 @@ class ResponseRiskFactory:
                 impact_ = impact
                 break
 
-
         for factor in factors:
             if factor.id == risk.factor_id:
                 factor_ = factor
@@ -146,5 +147,40 @@ class ResponseRiskFactory:
     ) -> list[ResponseRisk]:
         return [
             cls.get_from_tuple_with_dict(risk=risk, factors=factors, types=types, methods=methods, statuses=statuses,
-                                        probabilities=probabilities, impacts=impacts) for risk in risks
+                                         probabilities=probabilities, impacts=impacts) for risk in risks
         ]
+
+
+class ResponseHistory(BaseModel):
+    date_update: int = Field(..., description='timestamp, когда было изменение')
+    updated_field: str = Field(..., description='поле, которое было изменено')
+    old_value: str | None = Field(None, description='старое значение, если null, значит это первое изменение')
+    new_value: str = Field(..., description='новое значение')
+
+
+class ResponseHistoryFactory:
+    @staticmethod
+    def get_from_tuple(tuple_: tuple) -> ResponseHistory:
+        return ResponseHistory(
+            date_update=int(datetime.strptime(tuple_[0], "%Y-%m-%d %H:%M:%S").timestamp()),
+            updated_field=tuple_[1],
+            old_value=tuple_[2],
+            new_value=tuple_[3])
+
+    @classmethod
+    def get_many_from_tuples(cls, tuples: list[tuple]) -> list[ResponseHistory]:
+        return [cls.get_from_tuple(tuple_) for tuple_ in tuples]
+
+
+class ResponseRiskHistory(BaseModel):
+    risk_created_at: int = Field(...)
+    history: list[ResponseHistory] = Field([])
+
+
+class ResponseRiskHistoryFactory:
+    @staticmethod
+    def get_from_tuple(risk_created_at: int, history: list[tuple]) -> ResponseRiskHistory:
+        return ResponseRiskHistory(
+            risk_created_at=risk_created_at,
+            history=ResponseHistoryFactory.get_many_from_tuples(history)
+        )

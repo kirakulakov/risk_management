@@ -345,7 +345,7 @@ class Database:
             """
             CREATE TABLE IF NOT EXISTS history_log_risks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                risk_id INTEGER NOT NULL,
+                risk_id string NOT NULL,
                 prev_history_id INTEGER,
                 updated_column_name TEXT NOT NULL,
                 old_data TEXT,
@@ -462,6 +462,9 @@ class Database:
             "DELETE FROM risks WHERE id = ? AND account_id = ?",
             (risk_id, auth_account_id),
         )
+        self.cursor.execute(
+            f"DELETE FROM history_log_risks WHERE risk_id = '{risk_id}'",
+        )
         self.connection.commit()
 
     def get_project_id_by_account_id(self, auth_account_id: int) -> str:
@@ -487,6 +490,18 @@ class Database:
             "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, risk_status_id FROM risks WHERE account_id = ? AND id = ?",
             (auth_account_id, risk_id),
         ).fetchone()
+
+    def get_risk_created_at_by_id(self, auth_account_id: int, risk_id: str) -> tuple:
+        return self.cursor.execute(
+            "SELECT created_at FROM risks WHERE account_id = ? AND id = ?",
+            (auth_account_id, risk_id),
+        ).fetchone()
+
+    def get_risk_history_by_risk_id(self, risk_id: str, limit: int, offset: int) -> list[tuple]:
+        return self.cursor.execute(
+            "SELECT timestamp, updated_column_name, old_data, new_data FROM history_log_risks WHERE risk_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+            (risk_id, limit, offset),
+        ).fetchall()
 
     def update_risk_by_request_model(self, auth_account_id: int, request_model: RequestRiskUpdate) -> None:
         attributes = {

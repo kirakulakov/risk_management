@@ -169,9 +169,12 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
     assert None in comment_set
     assert 'string1' in comment_set
 
+
     # update
     risk_id = response.json()[0]['id']
     risk_id_2 = response.json()[1]['id']
+
+
     payload = {
         "id": risk_id,
         "name": "string2",
@@ -181,7 +184,7 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
         "type_id": 2,
         "method_id": 2,
         "probability_id": 2,
-        "impact_id": 1,
+        "impact_id": 2,
         "status_id": 3
     }
 
@@ -196,6 +199,45 @@ def test_risks(client: TestClient, cursor: Cursor, connection: Connection):
     assert response.json()['probability']['id'] == payload['probability_id']
     assert response.json()['impact']['id'] == payload['impact_id']
     assert response.json()['status']['id'] == payload['status_id']
+
+    response = client.get(f"/api/risks/{risk_id}/history", headers=auth)
+    assert response.status_code == 200
+    assert len(response.json()['history']) == 9
+
+    payload = {
+        "id": risk_id,
+        "name": "string32",
+        "description": "string21",
+        "comment": "string21",
+        "factor_id": 1,
+        "type_id": 1,
+        "method_id": 1,
+        "probability_id": 1,
+        "impact_id": 1,
+        "status_id": 1
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+
+    response = client.get(f"/api/risks/{risk_id}/history", headers=auth)
+    assert response.status_code == 200
+    assert len(response.json()['history']) == 18
+
+    payload = {
+        "id": risk_id,
+        "name": "string321",
+        "comment": "string221",
+        "factor_id": 2,
+        "impact_id": 2,
+    }
+
+    response = client.patch(f"/api/risks", headers=auth, json=payload)
+    assert response.status_code == 200
+
+    response = client.get(f"/api/risks/{risk_id}/history", headers=auth)
+    assert response.status_code == 200
+    assert len(response.json()['history']) == 22
 
     payload = {
         "id": risk_id,

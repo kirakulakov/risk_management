@@ -1,5 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Callable, Any
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -16,7 +17,7 @@ from src.api.response.risks import (
     CommonObj,
     CommonObjFactory,
     ResponseRisk,
-    ResponseRiskFactory, CommonObjWithValueFactory, CommonObjWithValue,
+    ResponseRiskFactory, CommonObjWithValueFactory, CommonObjWithValue, ResponseRiskHistory, ResponseRiskHistoryFactory,
 )
 from src.db.db import Database
 from src.internal.dto.common_object import CommonObjDTOFactory, CommonObjWithValueDTOFactory
@@ -143,8 +144,30 @@ async def get_risks(
         statuses=statuses, probabilities=probabilities, impacts=impacts)
 
 
-async def fetch_data(db_method: Callable[..., Any], factory_method: Callable[[Any], Any], *args, **kwargs) -> Any:
+@router.get("/{risk_id}/history", response_model=ResponseRiskHistory)
+async def get_risk_history(
+        risk_id: str,
+        db: Database = Depends(get_db),
+        auth_account_id: int = Depends(get_auth_account_id_from_token),
+        pagination_params: PagesPaginationParams = Depends(),
+):
+    risk_exist = db.risk_id_exists(risk_id=risk_id, auth_account_id=auth_account_id)
+    if not risk_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Risk not found",
+        )
 
+    risk_created_at: tuple[str] = db.get_risk_created_at_by_id(risk_id=risk_id, auth_account_id=auth_account_id)
+    risk_created_at_timestamp = int(datetime.strptime(risk_created_at[0], "%Y-%m-%d %H:%M:%S").timestamp())
+
+    history = db.get_risk_history_by_risk_id(
+        risk_id=risk_id, limit=pagination_params.limit, offset=pagination_params.offset)
+
+    return ResponseRiskHistoryFactory.get_from_tuple(risk_created_at=risk_created_at_timestamp, history=history)
+
+
+async def fetch_data(db_method: Callable[..., Any], factory_method: Callable[[Any], Any], *args, **kwargs) -> Any:
     with ThreadPoolExecutor() as executor:
         future = executor.submit(db_method, *args, **kwargs)
         data = future.result()
@@ -179,7 +202,6 @@ async def patch_risk(
     factory_methods = [CommonObjDTOFactory.get_many_from_tuples] * (len(db_methods) - 2)
     factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
     factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
-
     tasks = [fetch_data(method, factory) for method, factory in zip(db_methods, factory_methods)]
     results: tuple = await asyncio.gather(*tasks)
 
