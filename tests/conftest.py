@@ -43,7 +43,7 @@ def logger() -> logging.Logger:
 @pytest.fixture(scope="session")
 def database(settings, logger) -> Database:
     db = Database(path=settings.db.path, logger=logger)
-    db.drop_all_tables()
+    db.drop_tables_with_dynamic_data()
     db.create_tables_and_fill_data()
     return db
 
@@ -80,6 +80,7 @@ def app(settings, database, logger) -> FastAPI:
 
 
 @pytest.fixture(scope="session")
-def client(app) -> Generator:
+def client(app, database) -> Generator:
     with TestClient(app) as client:
         yield client
+        database.drop_tables_with_dynamic_data()

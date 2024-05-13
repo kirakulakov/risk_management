@@ -34,7 +34,7 @@ class Database:
     def get_path(self):
         return self.path
 
-    def drop_all_tables(self) -> None:
+    def drop_tables_with_dynamic_data(self) -> None:
         self.cursor.execute(
             """
             DROP TABLE IF EXISTS accounts; 
@@ -43,6 +43,11 @@ class Database:
         self.cursor.execute(
             """
             DROP TABLE IF EXISTS risks; 
+            """
+        )
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS history_log_risks; 
             """
         )
         self.connection.commit()
