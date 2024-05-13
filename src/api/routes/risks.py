@@ -2,7 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from starlette import status
 
 from src.api.depends import (
@@ -193,10 +193,11 @@ async def patch_risk(
 @router.delete("/{risk_id}", response_model=ResponseEmpty)
 async def delete_risk(
         risk_id: str,
+        background_tasks: BackgroundTasks,
         db: Database = Depends(get_db),
         auth_account_id: int = Depends(get_auth_account_id_from_token),
 ):
-    db.delete_risk(risk_id=risk_id, auth_account_id=auth_account_id)
+    background_tasks.add_task(db.delete_risk, risk_id=risk_id, auth_account_id=auth_account_id)
     return ResponseEmpty()
 
 
