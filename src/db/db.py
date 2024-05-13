@@ -617,8 +617,8 @@ class Database:
         self.cursor.execute(
             """
             INSERT INTO risks (
-                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, description
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, description, risk_status_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_model.id,
@@ -630,7 +630,8 @@ class Database:
                 request_model.method_id,
                 request_model.probability_id,
                 request_model.impact_id,
-                request_model.description
+                request_model.description,
+                request_model.status_id
             ),
         )
         # self.connection.commit()

@@ -11,6 +11,7 @@ class RequestRisk(BaseModel):
     method_id: int = Field(...)
     probability_id: int = Field(...)
     impact_id: int = Field(...)
+    status_id: int = Field(1)
 
     @field_validator("description", mode='before')
     def validate_description_length(cls, description):
