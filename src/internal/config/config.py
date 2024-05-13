@@ -8,12 +8,12 @@ class Server(BaseModel):
     title: str = "Risk Management API"
     host: str
     port: int
-    log_level: str
-    reload: bool
-    workers: int
-    docs_url: str
-    openapi_url: str
-    env: str
+    log_level: str | None = "info"
+    reload: bool = False
+    workers: int = 1
+    docs_url: str = "/docs"
+    openapi_url: str = "/openapi.json"
+    env: str = "local"
 
 
 class DB(BaseModel):
@@ -22,8 +22,8 @@ class DB(BaseModel):
 
 class Security(BaseModel):
     secret_key: str
-    algorithm: str
-    access_token_expire_minutes: int
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
 
 class Settings(BaseSettings):

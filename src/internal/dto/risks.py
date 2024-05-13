@@ -8,10 +8,11 @@ class RiskDTO:
     factor_id: int
     type_id: int
     method_id: int
-    probability: int
-    impact: int
+    probability_id: int | None = None
+    impact_id: int | None = None
     description: str | None = None
     comment: str | None = None
+    status_id: int | None = None
 
 
 class RiskDTOFactory:
@@ -25,8 +26,9 @@ class RiskDTOFactory:
             factor_id=tuple_[4],
             type_id=tuple_[5],
             method_id=tuple_[6],
-            probability=tuple_[7],
-            impact=tuple_[8],
+            probability_id=tuple_[7],
+            impact_id=tuple_[8],
+            status_id=tuple_[-1],
         )
 
     @classmethod

@@ -31,7 +31,7 @@ def event_loop(request):
 @pytest.fixture(scope="session")
 def settings(set_env) -> Settings:
     settings = Settings()
-    settings.db.path = "database_test.db"
+    settings.db.path = "database.test.db"
     return settings
 
 

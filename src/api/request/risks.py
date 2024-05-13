@@ -9,8 +9,8 @@ class RequestRisk(BaseModel):
     factor_id: int = Field(...)
     type_id: int = Field(...)
     method_id: int = Field(...)
-    probability: int = Field(ge=0, le=10)
-    impact: int = Field(ge=0, le=10)
+    probability_id: int = Field(...)
+    impact_id: int = Field(...)
 
     @field_validator("description", mode='before')
     def validate_description_length(cls, description):
@@ -39,8 +39,9 @@ class RequestRiskUpdate(BaseModel):
     factor_id: int | None = Field(None)
     type_id: int | None = Field(None)
     method_id: int | None = Field(None)
-    probability: int | None = Field(None, ge=0, le=10)
-    impact: int | None = Field(None, ge=0, le=10)
+    probability_id: int | None = Field(None)
+    impact_id: int | None = Field(None)
+    status_id: int | None = Field(None)
 
     @field_validator("description", mode='before')
     def validate_description_length(cls, description):

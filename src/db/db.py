@@ -51,6 +51,99 @@ class Database:
         """
         Create the tables in the database if they don't exist already and fill them with data.
         """
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS probability; 
+            """
+        )
+        self.cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS probability (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            value FLOAT NOT NULL
+        )
+        """
+        )
+        probabilities = [
+            (
+                1,
+                "Низкая",
+                0.2
+            ),
+            (
+                2,
+                "Ниже среднего",
+                0.4
+
+            ),
+            (
+                3,
+                "Средняя",
+                0.6
+            ),
+            (
+                4,
+                "Выше среднего",
+                0.8
+            ),
+            (
+                5,
+                "Высокая",
+                1
+            )
+        ]
+        self.cursor.executemany("INSERT INTO probability (id, name, value) VALUES (?, ?, ?)", probabilities)
+
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS impact; 
+            """
+        )
+        self.cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS impact (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            value FLOAT NOT NULL
+        )
+        """
+        )
+        impacts = [
+            (
+                1,
+                "Незначительное",
+                0.2
+            ),
+            (
+                2,
+                "Минимальное",
+                0.4
+
+            ),
+            (
+                3,
+                "Среднее",
+                0.6
+            ),
+            (
+                4,
+                "Высокое",
+                0.8
+            ),
+            (
+                5,
+                "Критичное",
+                1
+            )
+        ]
+        self.cursor.executemany("INSERT INTO impact (id, name, value) VALUES (?, ?, ?)", impacts)
+
+        self.cursor.execute(
+            """
+            DROP TABLE IF EXISTS risk_status; 
+            """
+        )
 
         self.cursor.execute(
             """
@@ -67,6 +160,30 @@ class Database:
             DROP TABLE IF EXISTS risk_management_methods; 
             """
         )
+
+        self.cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS risk_status (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+            )
+        """
+        )
+        risk_statuses = [
+            (
+                1,
+                "Открыто",
+            ),
+            (
+                2,
+                "Выполняется",
+            ),
+            (
+                3,
+                "Закрыто",
+            ),
+        ]
+        self.cursor.executemany("INSERT INTO risk_status (id, name) VALUES (?, ?)", risk_statuses)
 
         self.cursor.execute(
             """
@@ -94,15 +211,145 @@ class Database:
                 risk_factor_id INTEGER NOT NULL,
                 risk_type_id INTEGER NOT NULL,
                 risk_management_method_id INTEGER NOT NULL,
-                probability SMALLINT NOT NULL,
-                impact SMALLINT NOT NULL,
+                risk_status_id INTEGER NOT NULL DEFAULT 1,
+                probability_id INTEGER,
+                impact_id INTEGER,
                 FOREIGN KEY (account_id) REFERENCES accounts(id),
                 FOREIGN KEY (risk_factor_id) REFERENCES risk_factors(id),
                 FOREIGN KEY (risk_type_id) REFERENCES risk_types(id),
-                FOREIGN KEY (risk_management_method_id) REFERENCES risk_management_methods(id)
+                FOREIGN KEY (risk_management_method_id) REFERENCES risk_management_methods(id),
+                FOREIGN KEY (risk_status_id) REFERENCES risk_status(id),
+                FOREIGN KEY (probability_id) REFERENCES probability(id),
+                FOREIGN KEY (impact_id) REFERENCES impact(id),
                 PRIMARY KEY (id, account_id)
             )
         """
+        )
+
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_name_changes
+            AFTER UPDATE OF name ON risks
+            FOR EACH ROW
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'название', OLD.name, NEW.name, CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_description_changes
+            AFTER UPDATE OF description ON risks
+            FOR EACH ROW
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'описание', OLD.description, NEW.description, CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_comment_changes
+            AFTER UPDATE OF comment ON risks
+            FOR EACH ROW
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'комментарий', OLD.comment, NEW.comment, CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_risk_factor_id_changes
+            AFTER UPDATE OF risk_factor_id ON risks
+            FOR EACH ROW
+            WHEN OLD.risk_factor_id != NEW.risk_factor_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'фактор', (SELECT name FROM risk_factors WHERE id = OLD.risk_factor_id), (SELECT name FROM risk_factors WHERE id = NEW.risk_factor_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_risk_type_id_changes
+            AFTER UPDATE OF risk_type_id ON risks
+            FOR EACH ROW
+            WHEN OLD.risk_type_id != NEW.risk_type_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'вид риска', (SELECT name FROM risk_types WHERE id = OLD.risk_type_id), (SELECT name FROM risk_types WHERE id = NEW.risk_type_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_risk_management_method_id_changes
+            AFTER UPDATE OF risk_management_method_id ON risks
+            FOR EACH ROW
+            WHEN OLD.risk_management_method_id != NEW.risk_management_method_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'метод управления', (SELECT name FROM risk_management_methods WHERE id = OLD.risk_management_method_id), (SELECT name FROM risk_management_methods WHERE id = NEW.risk_management_method_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_risk_status_id_changes
+            AFTER UPDATE OF risk_status_id ON risks
+            FOR EACH ROW
+            WHEN OLD.risk_status_id != NEW.risk_status_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'статус', (SELECT name FROM risk_status WHERE id = OLD.risk_status_id), (SELECT name FROM risk_status WHERE id = NEW.risk_status_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_probability_id_changes
+            AFTER UPDATE OF probability_id ON risks
+            FOR EACH ROW
+            WHEN OLD.probability_id != NEW.probability_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'вероятность', (SELECT name FROM probability WHERE id = OLD.probability_id), (SELECT name FROM probability WHERE id = NEW.probability_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS track_impact_id_changes
+            AFTER UPDATE OF impact_id ON risks
+            FOR EACH ROW
+            WHEN OLD.impact_id != NEW.impact_id
+            BEGIN
+                INSERT INTO history_log_risks (risk_id, updated_column_name, old_data, new_data, timestamp, prev_history_id)
+                VALUES (OLD.id, 'влияние', (SELECT name FROM impact WHERE id = OLD.impact_id), (SELECT name FROM impact WHERE id = NEW.impact_id), CURRENT_TIMESTAMP, (SELECT id FROM history_log_risks WHERE risk_id = OLD.id ORDER BY id DESC LIMIT 1));
+            END;
+
+            """
+        )
+
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS history_log_risks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                risk_id INTEGER NOT NULL,
+                prev_history_id INTEGER,
+                updated_column_name TEXT NOT NULL,
+                old_data TEXT,
+                new_data TEXT NOT NULL,
+                timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (risk_id) REFERENCES risks(id),
+                FOREIGN KEY (prev_history_id) REFERENCES history_log_risks(id)
+            )
+            """
         )
 
         self.cursor.execute(
@@ -226,13 +473,13 @@ class Database:
 
     def get_risks(self, auth_account_id: int, limit: int, offset: int) -> list[tuple]:
         return self.cursor.execute(
-            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, risk_status_id FROM risks WHERE account_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (auth_account_id, limit, offset),
         ).fetchall()
 
     def get_risk_by_id(self, auth_account_id: int, risk_id: str) -> tuple:
         return self.cursor.execute(
-            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact FROM risks WHERE account_id = ? AND id = ?",
+            "SELECT id, name, description, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, risk_status_id FROM risks WHERE account_id = ? AND id = ?",
             (auth_account_id, risk_id),
         ).fetchone()
 
@@ -244,8 +491,9 @@ class Database:
             'risk_factor_id': request_model.factor_id,
             'risk_type_id': request_model.type_id,
             'risk_management_method_id': request_model.method_id,
-            'probability': request_model.probability,
-            'impact': request_model.impact
+            'probability_id': request_model.probability_id,
+            'impact_id': request_model.impact_id,
+            'risk_status_id': request_model.status_id
         }
 
         query = "UPDATE risks SET "
@@ -277,6 +525,26 @@ class Database:
 
     def get_risk_management_methods(self) -> list[tuple]:
         return self.cursor.execute("SELECT * FROM risk_management_methods").fetchall()
+
+    def get_risk_statuses(self) -> list[tuple]:
+        return self.cursor.execute("SELECT * FROM risk_status").fetchall()
+
+    def get_risk_probabilities(self) -> list[tuple]:
+        return self.cursor.execute("SELECT id, name, value FROM probability").fetchall()
+
+    def get_risk_impacts(self) -> list[tuple]:
+        return self.cursor.execute("SELECT id, name, value FROM impact").fetchall()
+
+    def get_risk_status_by_id(self, risk_status_id: int) -> tuple:
+        return self.cursor.execute("SELECT * FROM risk_status WHERE id = ?", (risk_status_id,)).fetchone()
+
+    def get_risk_probability_by_id(self, risk_probability_id: int) -> tuple:
+        return self.cursor.execute("SELECT id, name, value FROM probability WHERE id = ?",
+                                   (risk_probability_id,)).fetchone()
+
+    def get_risk_impact_by_id(self, risk_impact_id: int) -> tuple:
+        return self.cursor.execute("SELECT id, name, value FROM impact WHERE id = ?",
+                                   (risk_impact_id,)).fetchone()
 
     def get_risk_management_method_by_id(self, risk_management_method_id: int) -> tuple:
         return self.cursor.execute(
@@ -316,7 +584,7 @@ class Database:
         self.cursor.execute(
             """
             INSERT INTO risks (
-                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability, impact, description
+                id, account_id, name, comment, risk_factor_id, risk_type_id, risk_management_method_id, probability_id, impact_id, description
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -327,8 +595,8 @@ class Database:
                 request_model.factor_id,
                 request_model.type_id,
                 request_model.method_id,
-                request_model.probability,
-                request_model.impact,
+                request_model.probability_id,
+                request_model.impact_id,
                 request_model.description
             ),
         )

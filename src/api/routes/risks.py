@@ -1,3 +1,7 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable, Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from starlette import status
 
@@ -12,10 +16,10 @@ from src.api.response.risks import (
     CommonObj,
     CommonObjFactory,
     ResponseRisk,
-    ResponseRiskFactory,
+    ResponseRiskFactory, CommonObjWithValueFactory, CommonObjWithValue,
 )
 from src.db.db import Database
-from src.internal.dto.common_object import CommonObjDTOFactory
+from src.internal.dto.common_object import CommonObjDTOFactory, CommonObjWithValueDTOFactory
 from src.internal.dto.risks import RiskDTOFactory
 
 router = APIRouter()
@@ -45,6 +49,30 @@ async def get_risk_management_methods(
     return CommonObjFactory.get_many_from_tuples(rows)
 
 
+@router.get("/statuses", response_model=list[CommonObj])
+async def get_risk_statuses(
+        db: Database = Depends(get_db),
+):
+    rows: list[tuple] = db.get_risk_statuses()
+    return CommonObjFactory.get_many_from_tuples(rows)
+
+
+@router.get("/probabilities", response_model=list[CommonObjWithValue])
+async def get_probabilities(
+        db: Database = Depends(get_db),
+):
+    rows: list[tuple] = db.get_risk_probabilities()
+    return CommonObjWithValueFactory.get_many_from_tuples(rows)
+
+
+@router.get("/impacts", response_model=list[CommonObjWithValue])
+async def get_risk_impacts(
+        db: Database = Depends(get_db),
+):
+    rows: list[tuple] = db.get_risk_impacts()
+    return CommonObjWithValueFactory.get_many_from_tuples(rows)
+
+
 @router.post("", response_model=ResponseRisk)
 async def create_new_risk(
         request_model: RequestRisk,
@@ -61,6 +89,9 @@ async def create_new_risk(
     factor = db.get_risk_factor_by_id(request_model.factor_id)
     type = db.get_risk_type_by_id(request_model.type_id)
     method = db.get_risk_management_method_by_id(request_model.method_id)
+    risk_status = db.get_risk_status_by_id(1)
+    probability = db.get_risk_probability_by_id(request_model.probability_id)
+    impact = db.get_risk_impact_by_id(request_model.impact_id)
 
     new_risk = (
         request_model.id,
@@ -70,8 +101,9 @@ async def create_new_risk(
         factor,
         type,
         method,
-        request_model.probability,
-        request_model.impact,
+        probability,
+        impact,
+        risk_status
     )
 
     return ResponseRiskFactory.get_from_tuple(new_risk)
@@ -83,21 +115,41 @@ async def get_risks(
         auth_account_id: int = Depends(get_auth_account_id_from_token),
         pagination_params: PagesPaginationParams = Depends(),
 ):
-    factors = db.get_risk_factors()
-    factors = CommonObjDTOFactory.get_many_from_tuples(factors)
+    db_methods = [
+        db.get_risk_factors,
+        db.get_risk_types,
+        db.get_risk_management_methods,
+        db.get_risk_statuses,
+        db.get_risk_probabilities,
+        db.get_risk_impacts
+    ]
+    factory_methods = [CommonObjDTOFactory.get_many_from_tuples] * (len(db_methods) - 2)
+    factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
+    factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
 
-    types = db.get_risk_types()
-    types = CommonObjDTOFactory.get_many_from_tuples(types)
+    tasks = [fetch_data(method, factory) for method, factory in zip(db_methods, factory_methods)]
+    tasks.append(
+        fetch_data(
+            db.get_risks,
+            RiskDTOFactory.get_many_from_tuples,
+            auth_account_id=auth_account_id, limit=pagination_params.limit,
+            offset=pagination_params.offset))
+    results: tuple = await asyncio.gather(*tasks)
 
-    methods = db.get_risk_management_methods()
-    methods = CommonObjDTOFactory.get_many_from_tuples(methods)
+    factors, types, methods, statuses, probabilities, impacts, risks = results
 
-    rows: list[tuple] = db.get_risks(
-        auth_account_id=auth_account_id, limit=pagination_params.limit, offset=pagination_params.offset
-    )
-    risks = RiskDTOFactory.get_many_from_tuples(rows)
+    return ResponseRiskFactory.get_many_from_tuples(
+        risks=risks, factors=factors, types=types, methods=methods,
+        statuses=statuses, probabilities=probabilities, impacts=impacts)
 
-    return ResponseRiskFactory.get_many_from_tuples(risks=risks, factors=factors, types=types, methods=methods)
+
+async def fetch_data(db_method: Callable[..., Any], factory_method: Callable[[Any], Any], *args, **kwargs) -> Any:
+
+    with ThreadPoolExecutor() as executor:
+        future = executor.submit(db_method, *args, **kwargs)
+        data = future.result()
+        result = factory_method(data)
+    return result
 
 
 @router.patch("", response_model=ResponseRisk)
@@ -116,16 +168,26 @@ async def patch_risk(
     updated_risk = db.get_risk_by_id(risk_id=request_model.id, auth_account_id=auth_account_id)
     risk = RiskDTOFactory.from_tuple(updated_risk)
 
-    factors = db.get_risk_factors()
-    factors = CommonObjDTOFactory.get_many_from_tuples(factors)
+    db_methods = [
+        db.get_risk_factors,
+        db.get_risk_types,
+        db.get_risk_management_methods,
+        db.get_risk_statuses,
+        db.get_risk_probabilities,
+        db.get_risk_impacts
+    ]
+    factory_methods = [CommonObjDTOFactory.get_many_from_tuples] * (len(db_methods) - 2)
+    factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
+    factory_methods.append(CommonObjWithValueDTOFactory.get_many_from_tuples)
 
-    types = db.get_risk_types()
-    types = CommonObjDTOFactory.get_many_from_tuples(types)
+    tasks = [fetch_data(method, factory) for method, factory in zip(db_methods, factory_methods)]
+    results: tuple = await asyncio.gather(*tasks)
 
-    methods = db.get_risk_management_methods()
-    methods = CommonObjDTOFactory.get_many_from_tuples(methods)
+    factors, types, methods, statuses, probabilities, impacts = results
 
-    return ResponseRiskFactory.get_from_tuple_with_dict(risk=risk, factors=factors, types=types, methods=methods)
+    return ResponseRiskFactory.get_from_tuple_with_dict(
+        risk=risk, factors=factors, types=types, methods=methods,
+        statuses=statuses, probabilities=probabilities, impacts=impacts)
 
 
 @router.delete("/{risk_id}", response_model=ResponseEmpty)
